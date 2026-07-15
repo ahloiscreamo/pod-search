@@ -75,4 +75,4 @@ Cache lives at `~/.cache/pod-search/`. If a cached genre list is still fresh, yo
 
 ## License
 
-Do whatever you want with it.
+MIT — see [LICENSE](LICENSE). Do whatever you want with it.
