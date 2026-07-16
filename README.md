@@ -1,3 +1,7 @@
+<img width="1282" height="1037" alt="20260716_18h23m22s_grim" src="https://github.com/user-attachments/assets/172afc1b-7955-4501-bd1d-2eb5f5a4ff39" />
+
+<img width="1282" height="1038" alt="20260716_18h23m58s_grim" src="https://github.com/user-attachments/assets/3e600d50-382e-42b0-9849-5db8bee56932" />
+
 # pod-search
 
 A tiny bash + fzf script that finds a podcast's RSS feed and copies it to your clipboard. That's it, that's the whole app.
