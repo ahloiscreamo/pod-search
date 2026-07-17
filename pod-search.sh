@@ -1,9 +1,8 @@
 #!/bin/bash
-# Configuration
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/pod-search"
 CONFIG_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/pod-search/config"
-CACHE_TTL=86400        # 24h - genre chart data doesn't need to be re-fetched constantly
-CATEGORIES_TTL=2592000 # 30d - category list almost never changes
+CACHE_TTL=86400        # 24h, no need to hammer the api every time
+CATEGORIES_TTL=2592000 # 30d, categories basically never change
 mkdir -p "$CACHE_DIR"
 
 copy_to_clipboard() {
@@ -14,9 +13,8 @@ copy_to_clipboard() {
     fi
 }
 
-# Plain (non-fzf) confirmation screen so the "Copied:" line actually stays
-# visible - fzf takes over the whole screen on its next call and would
-# otherwise wipe it out before it's readable.
+# fzf takes over the whole screen next time it runs, so without this the
+# copied url just flashes and disappears before you can read it
 show_copied_and_wait() {
     local url="$1"
     echo
@@ -25,8 +23,7 @@ show_copied_and_wait() {
     [[ "$next" == "q" || "$next" == "Q" ]] && exit 0
 }
 
-# Pad/truncate a raw tab-separated "name\tartist\tkey" stream into a
-# display-friendly "paddedname  paddedartist\tkey" stream for fzf.
+# pads name/artist into fixed columns so the fzf list lines up
 format_for_fzf() {
     awk -F'\t' -v nw=42 -v aw=28 -v gap=4 '
     {
@@ -39,8 +36,7 @@ format_for_fzf() {
     }'
 }
 
-# Pad/truncate a raw tab-separated "name\tkey" stream (2 fields only - for
-# pickers like the genre list that don't have a separate artist column).
+# same thing but just name + key, no artist column
 format_single_for_fzf() {
     awk -F'\t' -v nw=50 '
     {
@@ -51,9 +47,7 @@ format_single_for_fzf() {
     }'
 }
 
-# For the genre-browse podcast list: name-only display (author is already visible
-# in the preview pane, so no need to compete for width with a truncated author column).
-# Input: "name\tauthor\tkey\tpreview" (author field is ignored here).
+# genre list only shows the name - author's already in the preview pane
 format_name_preview_for_fzf() {
     awk -F'\t' -v nw=48 '
     {
@@ -89,8 +83,7 @@ search_and_select() {
     return 0
 }
 
-# --- Podcast Index auth ---
-# authHeader = sha1(apiKey + apiSecret + unixTime), per official API spec
+# podcast index auth is sha1(key + secret + timestamp) as a header, nothing fancy
 pi_request() {
     local endpoint="$1"
     local ts hash
@@ -119,7 +112,6 @@ pi_configured() {
     return 0
 }
 
-# --- Mode 2: browse by genre via Podcast Index ---
 browse_by_genre() {
     pi_configured || return 1
 
@@ -143,7 +135,7 @@ browse_by_genre() {
         echo "$categories_json" > "$cat_cache"
     fi
 
-    # Response shape isn't 100% pinned down in advance - try both plausible keys.
+    # not sure if it's .feeds or .categories under the hood, just try both
     genre_raw=$(echo "$categories_json" | jq -r '
         (.feeds // .categories // []) | .[] | "\(.name)\t\(.id)"
     ')
@@ -184,9 +176,9 @@ browse_by_genre() {
         echo "$chart_json" > "$chart_cache"
     fi
 
-    # Podcast Index feed objects include the actual feed url directly - no second lookup needed.
-    # Also build a compact preview blob per item (literal \n as a section separator, since the
-    # whole thing has to stay on one line for the tab-delimited list to parse correctly).
+    # feed url's already in the response, no extra lookup call needed here.
+    # preview text uses a literal \n between sections so it all still fits on one line -
+    # gets expanded back to real newlines when fzf renders the preview
     raw=$(echo "$chart_json" | jq -r '
         .feeds[] | select(.url != null) |
         ((.categories // {}) | [.[]] | join(", ")) as $catstr |
@@ -215,7 +207,6 @@ browse_by_genre() {
     return 0
 }
 
-# --- Main menu loop ---
 while true; do
     mode=$(printf 'Search by name\nBrowse by genre\nQuit' | \
         fzf --prompt="Podcast Search > " --bind 'esc:abort')
